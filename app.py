@@ -5,10 +5,10 @@ import traceback
 from dotenv import load_dotenv
 load_dotenv()
 
-from config import APP_ID, APP_PASSWORD, PORT
+from config import APP_ID, APP_PASSWORD, APP_TENANT_ID, PORT
 from bot import FoundryAgentBot
 
-SETTINGS = BotFrameworkAdapterSettings(APP_ID, APP_PASSWORD)
+SETTINGS = BotFrameworkAdapterSettings(APP_ID, APP_PASSWORD, channel_auth_tenant=APP_TENANT_ID)
 ADAPTER = BotFrameworkAdapter(SETTINGS)
 BOT = FoundryAgentBot()
 

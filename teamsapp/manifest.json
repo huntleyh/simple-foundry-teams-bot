@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "80de1cbc-e50c-4b97-86d4-14814222a31e",
+  "developer": {
+    "name": "huntleyh",
+    "websiteUrl": "https://github.com/huntleyh/simple-foundry-teams-bot",
+    "privacyUrl": "https://github.com/huntleyh/simple-foundry-teams-bot",
+    "termsOfUseUrl": "https://github.com/huntleyh/simple-foundry-teams-bot"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "Foundry Greeting",
+    "full": "Foundry Greeting Agent"
+  },
+  "description": {
+    "short": "AI greeting agent powered by Azure AI Foundry",
+    "full": "A Teams bot that routes messages to a Google ADK greeting agent hosted on Azure AI Foundry."
+  },
+  "accentColor": "#0078D4",
+  "bots": [
+    {
+      "botId": "$MicrosoftAppId",
+      "scopes": ["personal", "team", "groupchat"],
+      "isNotificationOnly": false,
+      "supportsFiles": false,
+      "supportsCalling": false,
+      "supportsVideo": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": []
+}

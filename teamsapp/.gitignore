@@ -1,0 +1,4 @@
+# Ignore the packaged zip and local icons (add real ones, don't commit)
+*.zip
+color.png
+outline.png
