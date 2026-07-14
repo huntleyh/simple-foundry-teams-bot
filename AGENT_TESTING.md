@@ -8,31 +8,39 @@ agentsplayground
 simple-teams-bot  (bot.py / app.py)
     ↓  POST /responses  (OpenAI Responses protocol)
 app_server.py  OR  Foundry Hosted Agent endpoint
-    ↓  DefaultAzureCredential → managed identity token
-aifoundry9263.openai.azure.com  (gpt-4.1, private endpoint)
+    ↓  DefaultAzureCredential → az login (local) or managed identity (Foundry)
+aifoundry9263.openai.azure.com  (gpt-4.1, public endpoint)
 ```
 
 ---
 
-## Local Test (no Azure deployment needed)
+## Local Test (calls the public Foundry endpoint via `az login`)
+
+> **Pre-requisite**: `az login` must be active — the local agent server calls
+> `https://aifoundry9263.openai.azure.com/` using your CLI credentials.
 
 ### Terminal 1 — ADK agent server
 ```powershell
 cd C:\Temp\adk-agent
-python app_server.py
+$env:AZURE_API_BASE = "https://aifoundry9263.openai.azure.com/"
+$env:AZURE_API_VERSION = "2024-12-01-preview"
+$env:AZURE_DEPLOYMENT_NAME = "gpt-4.1"
+$env:PYTHONUTF8 = "1"
+.venv\Scripts\python app_server.py
 # Listening on http://0.0.0.0:8088
 ```
 
 ### Terminal 2 — Teams bot
 ```powershell
 cd C:\Temp\simple-teams-bot
-$env:AGENT_ENDPOINT = "http://localhost:8088/responses"
+# Edit .env and set: AGENT_ENDPOINT=http://localhost:8088/responses
+notepad .env
 .venv\Scripts\python app.py
 # Bot on http://localhost:3978/api/messages
 ```
 
-> The bot auto-detects `http://localhost` and skips auth. For any other URL it
-> acquires a token via `DefaultAzureCredential` (your active `az login` session).
+> The bot reads `AGENT_ENDPOINT` from `.env` via python-dotenv.
+> Switch between local and deployed by editing that one line.
 
 ### Terminal 3 — Agents Playground
 ```powershell
@@ -69,7 +77,9 @@ python deploy.py --grant-roles
 ### Start bot pointing at Foundry
 ```powershell
 cd C:\Temp\simple-teams-bot
-$env:AGENT_ENDPOINT = "https://aifoundry9263.services.ai.azure.com/api/projects/agent-project/agents/greeting-agent/endpoint/protocols/openai/responses"
+# .env already has AGENT_ENDPOINT set to the deployed Foundry endpoint (default)
+# Verify or edit:
+notepad .env
 .venv\Scripts\python app.py
 ```
 
@@ -80,7 +90,13 @@ $BASE  = "https://aifoundry9263.services.ai.azure.com/api/projects/agent-project
 curl -X POST "$BASE/agents/greeting-agent/endpoint/protocols/openai/responses?api-version=v1" `
      -H "Authorization: Bearer $TOKEN" `
      -H "Content-Type: application/json" `
-     -d '{"input":"hello!","stream":false}'
+     -d '{"input":"hello!","stream":false,"store":true}'
+```
+
+Or via the Python SDK (use the adk-agent venv which has `azure-ai-projects`):
+```powershell
+cd C:\Temp\adk-agent
+.venv\Scripts\python deploy.py --invoke "hello!"
 ```
 
 ---
