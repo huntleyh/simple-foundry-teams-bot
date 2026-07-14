@@ -173,6 +173,7 @@ curl -X POST http://localhost:3978/api/proactive `
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AGENT_ENDPOINT` | `http://localhost:8088/responses` | Responses endpoint the bot calls |
+| `FOUNDRY_API_KEY` | *(unset)* | API key for the deployed Foundry endpoint — takes priority over Entra token |
 | `MicrosoftAppId` | *(required)* | Bot App registration client ID |
 | `MicrosoftAppPassword` | *(required)* | Bot App registration client secret |
 | `MicrosoftAppTenantId` | *(required for SingleTenant bots)* | Tenant ID — sets the correct OAuth token endpoint |

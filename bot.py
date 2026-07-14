@@ -48,11 +48,16 @@ async def _call_responses(message: str, previous_response_id: str | None) -> tup
     headers = {"Content-Type": "application/json"}
 
     if not AGENT_ENDPOINT.startswith("http://localhost"):
-        # Deployed Foundry endpoint requires an Entra token
-        from azure.identity.aio import DefaultAzureCredential
-        async with DefaultAzureCredential() as cred:
-            token = await cred.get_token("https://ai.azure.com/.default")
-        headers["Authorization"] = f"Bearer {token.token}"
+        # Deployed Foundry endpoint requires authentication.
+        # Priority: FOUNDRY_API_KEY env var → DefaultAzureCredential (Entra token).
+        api_key = os.environ.get("FOUNDRY_API_KEY")
+        if api_key:
+            headers["api-key"] = api_key
+        else:
+            from azure.identity.aio import DefaultAzureCredential
+            async with DefaultAzureCredential() as cred:
+                token = await cred.get_token("https://ai.azure.com/.default")
+            headers["Authorization"] = f"Bearer {token.token}"
 
     payload: dict = {"input": message, "stream": False, "store": True}
     if previous_response_id:
