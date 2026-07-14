@@ -2,13 +2,11 @@ import os
 import aiohttp
 from botbuilder.core import ActivityHandler, TurnContext, MessageFactory
 
-# Switch between local app_server.py and deployed Foundry Hosted Agent:
-#
-#   Local (default):  set AGENT_ENDPOINT=http://localhost:8088/responses
-#   Deployed:         set AGENT_ENDPOINT=https://aifoundry9263.services.ai.azure.com/
-#                       api/projects/agent-project/agents/greeting-agent/
-#                       endpoint/protocols/openai/responses
-#
+# Keyed by channel_id:user_id — populated whenever a user sends a message.
+# Used by the POST /api/proactive endpoint to send unprompted messages.
+conversation_references: dict[str, object] = {}
+
+
 AGENT_ENDPOINT = os.environ.get(
     "AGENT_ENDPOINT",
     "http://localhost:8088/responses",
@@ -21,6 +19,11 @@ _response_ids: dict[str, str] = {}
 
 class FoundryAgentBot(ActivityHandler):
     async def on_message_activity(self, turn_context: TurnContext):
+        # Persist reference so /api/proactive can reach this conversation later
+        from botbuilder.core import TurnContext as TC
+        key = f"{turn_context.activity.channel_id}:{turn_context.activity.from_property.id}"
+        conversation_references[key] = TC.get_conversation_reference(turn_context.activity)
+
         user_text = turn_context.activity.text or ""
         session_key = f"{turn_context.activity.channel_id}:{turn_context.activity.from_property.id}"
 
