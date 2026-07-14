@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment / secrets (contains live endpoints and credentials)
+.env
+
+# Dev tool logs
+devTools/*.log
+devTools/
+
+# VS Code
+.vscode/
