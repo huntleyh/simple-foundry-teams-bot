@@ -101,6 +101,62 @@ cd C:\Temp\adk-agent
 
 ---
 
+## Teams Sideload (test in Microsoft Teams)
+
+### Prerequisites
+- An Azure Bot Service registration with the Teams channel enabled  
+  (`foundry-greeting-bot` in `rg-aifoundry9263`, App ID `1b82177f-70cb-4eb9-8ab0-1d4a9b015d98`)
+- A running dev tunnel forwarding port 3978 to the bot (see below)
+
+### 1 — Start the dev tunnel
+```powershell
+devtunnel host foundry-bot
+# Tunnel URL: https://mx0fnjk2-3978.use.devtunnels.ms  → localhost:3978
+```
+
+> The tunnel must be running **before** you start the bot so Teams can reach it.
+
+### 2 — Update the bot endpoint if the tunnel URL changed
+```powershell
+az bot update `
+  --resource-group rg-aifoundry9263 `
+  --name foundry-greeting-bot `
+  --endpoint "https://<tunnel-url>/api/messages"
+```
+
+### 3 — Start the bot
+```powershell
+cd C:\Temp\simple-teams-bot
+# .env already points AGENT_ENDPOINT at the deployed Foundry endpoint
+.venv\Scripts\python app.py
+```
+
+### 4 — Package the Teams app
+```powershell
+cd C:\Temp\simple-teams-bot\teamsapp
+.\package.ps1
+# Produces: foundry-greeting.zip
+```
+
+### 5 — Sideload in Teams
+1. Open Teams → **Apps** → **Manage your apps** → **Upload an app**
+2. Select `foundry-greeting.zip`
+3. Start a chat with **Foundry Greeting Bot**
+
+> **Troubleshooting**  
+> - *"Please make sure the bot is registered and teams' channel is enabled"* → run `az bot msteams create --resource-group rg-aifoundry9263 --name foundry-greeting-bot`  
+> - *`KeyError: 'access_token'`* → `MicrosoftAppTenantId` is missing from `.env` or not passed as `channel_auth_tenant` in `BotFrameworkAdapterSettings`
+
+### Proactive messaging
+```powershell
+# After at least one user has messaged the bot (to register their conversation reference):
+curl -X POST http://localhost:3978/api/proactive `
+     -H "Content-Type: application/json" `
+     -d '{"message": "Hello from the server!"}'
+```
+
+---
+
 ## Key files
 
 | File | Purpose |
@@ -117,6 +173,9 @@ cd C:\Temp\adk-agent
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AGENT_ENDPOINT` | `http://localhost:8088/responses` | Responses endpoint the bot calls |
+| `MicrosoftAppId` | *(required)* | Bot App registration client ID |
+| `MicrosoftAppPassword` | *(required)* | Bot App registration client secret |
+| `MicrosoftAppTenantId` | *(required for SingleTenant bots)* | Tenant ID — sets the correct OAuth token endpoint |
 | `PORT` | `3978` | Port the Bot Framework server listens on |
 | `AZURE_API_BASE` | *(set in .env or azure.yaml)* | Azure OpenAI endpoint for the ADK agent |
 | `AZURE_DEPLOYMENT_NAME` | `gpt-4.1` | Model deployment name |

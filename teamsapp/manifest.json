@@ -3,7 +3,6 @@
   "manifestVersion": "1.17",
   "version": "1.0.0",
   "id": "80de1cbc-e50c-4b97-86d4-14814222a31e",
-  "packageName": "com.huntleyh.foundry.greeting",
   "developer": {
     "name": "huntleyh",
     "websiteUrl": "https://github.com/huntleyh/simple-foundry-teams-bot",
