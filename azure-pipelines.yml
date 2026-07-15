@@ -1,0 +1,100 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Simple Teams Bot — deploy to Azure App Service (Linux, Python 3.12)
+#
+# Pre-requisites (one-time setup):
+#   1. Create an Azure App Service (Linux, Python 3.12) in rg-aifoundry9263.
+#      Set the variable appServiceName below to match.
+#
+#   2. Create an Azure Resource Manager service connection in ADO named
+#      "azure-service-connection"  (Project Settings → Service connections).
+#      The service principal needs Website Contributor on the App Service.
+#
+#   3. Add the following as secret pipeline variables
+#      (Pipeline → Edit → Variables, lock icon to mark as secret):
+#        MicrosoftAppPassword   — Bot App registration client secret
+#        FOUNDRY_API_KEY        — (optional) Foundry API key; omit to use
+#                                 managed identity / DefaultAzureCredential
+# ─────────────────────────────────────────────────────────────────────────────
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    exclude:
+      - '*.md'
+      - 'teamsapp/**'
+      - '.env*'
+      - 'azure-pipelines.yml'
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  serviceConnection: azure-service-connection
+  appServiceName: <your-app-service-name>       # ← replace with your App Service name
+  resourceGroup: rg-aifoundry9263
+  pythonVersion: '3.12'
+  # Non-secret app settings — set secrets in pipeline Variables (lock icon)
+  MicrosoftAppId: 1b82177f-70cb-4eb9-8ab0-1d4a9b015d98
+  MicrosoftAppTenantId: 16b3c013-d300-468d-ac64-7eda0820b6d3
+  AgentEndpoint: https://aifoundry9263.services.ai.azure.com/api/projects/agent-project/agents/greeting-agent/endpoint/protocols/openai/responses
+
+steps:
+
+- task: UsePythonVersion@0
+  displayName: 'Use Python $(pythonVersion)'
+  inputs:
+    versionSpec: $(pythonVersion)
+
+- script: |
+    pip install --upgrade pip
+    pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+  displayName: 'Install dependencies'
+
+- task: ArchiveFiles@2
+  displayName: 'Zip application'
+  inputs:
+    rootFolderOrFile: $(Build.SourcesDirectory)
+    includeRootFolder: false
+    archiveType: zip
+    archiveFile: $(Build.ArtifactStagingDirectory)/app.zip
+    replaceExistingArchive: true
+    excludePatterns: |
+      .venv/**
+      .git/**
+      .github/**
+      __pycache__/**
+      devTools/**
+      teamsapp/**
+      *.md
+      .env*
+
+- task: AzureWebApp@1
+  displayName: 'Deploy to App Service'
+  inputs:
+    azureSubscription: $(serviceConnection)
+    appType: webAppLinux
+    appName: $(appServiceName)
+    package: $(Build.ArtifactStagingDirectory)/app.zip
+    runtimeStack: 'PYTHON|3.12'
+    startUpCommand: 'python app.py'
+
+- task: AzureCLI@2
+  displayName: 'Configure App Service settings'
+  inputs:
+    azureSubscription: $(serviceConnection)
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+      az webapp config appsettings set \
+        --resource-group $(resourceGroup) \
+        --name $(appServiceName) \
+        --settings \
+          MicrosoftAppId="$(MicrosoftAppId)" \
+          MicrosoftAppPassword="$(MicrosoftAppPassword)" \
+          MicrosoftAppTenantId="$(MicrosoftAppTenantId)" \
+          AGENT_ENDPOINT="$(AgentEndpoint)" \
+          FOUNDRY_API_KEY="$(FOUNDRY_API_KEY)" \
+          PORT=8000 \
+          WEBSITES_PORT=8000

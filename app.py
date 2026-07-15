@@ -1,6 +1,7 @@
 from aiohttp import web
 from botbuilder.core import BotFrameworkAdapterSettings, BotFrameworkAdapter, TurnContext, MessageFactory, CardFactory
 from botbuilder.schema import Activity
+import os
 import traceback
 from dotenv import load_dotenv
 load_dotenv()
@@ -84,5 +85,6 @@ APP.router.add_post("/api/messages", messages)
 APP.router.add_post("/api/proactive", proactive)
 
 if __name__ == "__main__":
-    print(f"Bot running on http://localhost:{PORT}/api/messages")
-    web.run_app(APP, host="localhost", port=PORT)
+    host = os.environ.get("HOST", "0.0.0.0")
+    print(f"Bot running on http://{host}:{PORT}/api/messages")
+    web.run_app(APP, host=host, port=PORT)
