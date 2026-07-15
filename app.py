@@ -73,19 +73,34 @@ async def proactive(req: web.Request) -> web.Response:
         )
 
     # continue_conversation requires a non-empty bot_id or a ClaimsIdentity.
-    # When running locally with no credentials, supply an anonymous identity.
+    # When running locally with no credentials, supply an anonymous identity with
+    # explicit empty-string claims so the connector uses anonymous (no-token) mode.
     if APP_ID:
         continue_kwargs = {"bot_id": APP_ID}
     else:
         from botframework.connector.auth import ClaimsIdentity
-        continue_kwargs = {"claims_identity": ClaimsIdentity(claims={}, is_authenticated=True)}
+        continue_kwargs = {
+            "claims_identity": ClaimsIdentity(
+                claims={"aud": "", "appid": ""},
+                is_authenticated=True,
+            )
+        }
 
     sent = 0
+    errors: list[str] = []
     for ref in refs:
-        await ADAPTER.continue_conversation(ref, _send, **continue_kwargs)
-        sent += 1
+        try:
+            await ADAPTER.continue_conversation(ref, _send, **continue_kwargs)
+            sent += 1
+        except Exception as exc:
+            print(f"[proactive] delivery error: {exc}")
+            traceback.print_exc()
+            errors.append(str(exc))
 
-    return web.json_response({"sent": sent})
+    result: dict = {"sent": sent}
+    if errors:
+        result["errors"] = errors
+    return web.json_response(result, status=200 if sent else 500)
 
 
 APP = web.Application()
