@@ -1,5 +1,5 @@
 from aiohttp import web
-from botbuilder.core import BotFrameworkAdapterSettings, BotFrameworkAdapter, TurnContext, MessageFactory
+from botbuilder.core import BotFrameworkAdapterSettings, BotFrameworkAdapter, TurnContext, MessageFactory, CardFactory
 from botbuilder.schema import Activity
 import traceback
 from dotenv import load_dotenv
@@ -66,7 +66,10 @@ async def proactive(req: web.Request) -> web.Response:
         return web.json_response({"error": "no conversations stored yet — a user must message the bot first"}, status=404)
 
     async def _send(turn_context: TurnContext):
-        await turn_context.send_activity(MessageFactory.text(text))
+        from cards import agent_reply_card
+        await turn_context.send_activity(
+            MessageFactory.attachment(CardFactory.adaptive_card(agent_reply_card(text)))
+        )
 
     sent = 0
     for ref in refs:

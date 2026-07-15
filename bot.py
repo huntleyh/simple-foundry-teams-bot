@@ -1,6 +1,7 @@
 import os
 import aiohttp
-from botbuilder.core import ActivityHandler, TurnContext, MessageFactory
+from botbuilder.core import ActivityHandler, TurnContext, MessageFactory, CardFactory
+from cards import welcome_card, agent_reply_card
 
 # Keyed by channel_id:user_id — populated whenever a user sends a message.
 # Used by the POST /api/proactive endpoint to send unprompted messages.
@@ -31,12 +32,15 @@ class FoundryAgentBot(ActivityHandler):
         if response_id:
             _response_ids[session_key] = response_id   # thread subsequent turns
 
-        await turn_context.send_activity(MessageFactory.text(reply))
+        card = agent_reply_card(reply)
+        await turn_context.send_activity(MessageFactory.attachment(CardFactory.adaptive_card(card)))
 
     async def on_members_added_activity(self, members_added, turn_context: TurnContext):
         for member in members_added:
             if member.id != turn_context.activity.recipient.id:
-                await turn_context.send_activity("Hello! Ask me anything.")
+                await turn_context.send_activity(
+                    MessageFactory.attachment(CardFactory.adaptive_card(welcome_card()))
+                )
 
 
 async def _call_responses(message: str, previous_response_id: str | None) -> tuple[str, str | None]:
