@@ -72,9 +72,17 @@ async def proactive(req: web.Request) -> web.Response:
             MessageFactory.attachment(CardFactory.adaptive_card(agent_reply_card(text)))
         )
 
+    # continue_conversation requires a non-empty bot_id or a ClaimsIdentity.
+    # When running locally with no credentials, supply an anonymous identity.
+    if APP_ID:
+        continue_kwargs = {"bot_id": APP_ID}
+    else:
+        from botframework.connector.auth import ClaimsIdentity
+        continue_kwargs = {"claims_identity": ClaimsIdentity(claims={}, is_authenticated=True)}
+
     sent = 0
     for ref in refs:
-        await ADAPTER.continue_conversation(ref, _send, APP_ID)
+        await ADAPTER.continue_conversation(ref, _send, **continue_kwargs)
         sent += 1
 
     return web.json_response({"sent": sent})
