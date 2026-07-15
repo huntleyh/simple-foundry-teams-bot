@@ -1,10 +1,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Combined pipeline: Deploy Hosted Agent → Deploy Teams Bot
+# Combined pipeline: Deploy Hosted Agent → Deploy TypeScript ADK Agent
 #
 # Stage 1 (DeployHostedAgent): builds the greeting-agent container, pushes it
 #   to ACR, and deploys the new version to Azure AI Foundry.
-# Stage 2 (DeployTeamsBot):    deploys the Teams bot to Azure App Service.
-#   Runs only after Stage 1 succeeds, so the bot always points at a live agent.
+# Stage 2 (DeployAdkAgent):    builds and deploys the TypeScript ADK agent to Azure App Service.
+#   Runs only after Stage 1 succeeds, so the agent server is always up to date.
 #
 # Pre-requisites (one-time setup):
 #   1. Create an Azure Resource Manager service connection in ADO named
@@ -15,14 +15,12 @@
 #          the aifoundry9263 Cognitive Services account
 #        • Website Contributor on the App Service
 #
-#   2. Create an Azure App Service (Linux, Python 3.12) in rg-aifoundry9263.
+#   2. Create an Azure App Service (Linux, Node.js 22 LTS) in rg-aifoundry9263.
 #      Set appServiceName below to match.
 #
 #   3. Add the following as secret pipeline variables
 #      (Pipeline → Edit → Variables, lock icon to mark as secret):
-#        MicrosoftAppPassword   — Bot App registration client secret
-#        FOUNDRY_API_KEY        — (optional) Foundry API key; omit to use
-#                                 managed identity / DefaultAzureCredential
+#        FOUNDRY_API_KEY        — Foundry API key; omit to use managed identity
 #
 #   4. If this is the very first deployment, run locally once:
 #        python deploy.py --grant-roles
@@ -66,14 +64,10 @@ variables:
   # Stage 1 — Hosted Agent
   acrRegistry: acragentfzu5sn
   agentImageName: greeting-agent
-  # Stage 2 — Teams Bot
+  # Stage 2 — TypeScript ADK Agent
   appServiceName: <your-app-service-name>       # ← replace with your App Service name
   resourceGroup: rg-aifoundry9263
-  pythonVersion: '3.12'
-  # Non-secret app settings — set secrets in pipeline Variables (lock icon)
-  MicrosoftAppId: 1b82177f-70cb-4eb9-8ab0-1d4a9b015d98
-  MicrosoftAppTenantId: 16b3c013-d300-468d-ac64-7eda0820b6d3
-  AgentEndpoint: https://aifoundry9263.services.ai.azure.com/api/projects/agent-project/agents/greeting-agent/endpoint/protocols/openai/responses
+  nodeVersion: '22.x'
 
 stages:
 
@@ -119,43 +113,32 @@ stages:
               python deploy.py --image $(agentImageName):$(Build.BuildId)
 
 # ── Stage 2 ──────────────────────────────────────────────────────────────────
-- stage: DeployTeamsBot
-  displayName: 'Stage 2 — Deploy Teams bot to App Service'
+- stage: DeployAdkAgent
+  displayName: 'Stage 2 — Build & deploy TypeScript ADK agent'
   dependsOn: DeployHostedAgent
   jobs:
     - job: Deploy
-      displayName: 'Package and deploy bot'
+      displayName: 'Build and deploy TypeScript agent'
       steps:
-        - checkout: self
-          displayName: 'Checkout simple-teams-bot'
+        - checkout: adkAgent
+          displayName: 'Checkout adk-agent-ts'
 
-        - task: UsePythonVersion@0
-          displayName: 'Use Python $(pythonVersion)'
+        - task: NodeTool@0
+          displayName: 'Use Node.js $(nodeVersion)'
           inputs:
-            versionSpec: $(pythonVersion)
+            versionSpec: $(nodeVersion)
 
-        - script: |
-            pip install --upgrade pip
-            pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+        - script: npm ci
           displayName: 'Install dependencies'
 
-        - task: ArchiveFiles@2
-          displayName: 'Zip application'
-          inputs:
-            rootFolderOrFile: $(Build.SourcesDirectory)
-            includeRootFolder: false
-            archiveType: zip
-            archiveFile: $(Build.ArtifactStagingDirectory)/app.zip
-            replaceExistingArchive: true
-            excludePatterns: |
-              .venv/**
-              .git/**
-              .github/**
-              __pycache__/**
-              devTools/**
-              teamsapp/**
-              *.md
-              .env*
+        - script: npm run build
+          displayName: 'Compile TypeScript'
+
+        - script: |
+            cd $(Build.SourcesDirectory)
+            zip -r $(Build.ArtifactStagingDirectory)/agent.zip \
+              dist/ package.json package-lock.json
+          displayName: 'Create deployment zip'
 
         - task: AzureWebApp@1
           displayName: 'Deploy to App Service'
@@ -163,9 +146,9 @@ stages:
             azureSubscription: $(serviceConnection)
             appType: webAppLinux
             appName: $(appServiceName)
-            package: $(Build.ArtifactStagingDirectory)/app.zip
-            runtimeStack: 'PYTHON|3.12'
-            startUpCommand: 'python app.py'
+            package: $(Build.ArtifactStagingDirectory)/agent.zip
+            runtimeStack: 'NODE|22-lts'
+            startUpCommand: 'npm ci --omit=dev && node dist/app_server.js'
 
         - task: AzureCLI@2
           displayName: 'Configure App Service settings'
@@ -178,10 +161,6 @@ stages:
                 --resource-group $(resourceGroup) \
                 --name $(appServiceName) \
                 --settings \
-                  MicrosoftAppId="$(MicrosoftAppId)" \
-                  MicrosoftAppPassword="$(MicrosoftAppPassword)" \
-                  MicrosoftAppTenantId="$(MicrosoftAppTenantId)" \
-                  AGENT_ENDPOINT="$(AgentEndpoint)" \
                   FOUNDRY_API_KEY="$(FOUNDRY_API_KEY)" \
-                  PORT=8000 \
-                  WEBSITES_PORT=8000
+                  PORT=8088 \
+                  WEBSITES_PORT=8088
