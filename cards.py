@@ -41,17 +41,52 @@ def welcome_card() -> dict:
     ])
 
 
-def agent_reply_card(text: str) -> dict:
+def agent_reply_card(text: str, suggestions: list[str] | None = None) -> dict:
     """Wrap the agent's free-text (markdown) reply in an Adaptive Card.
 
     Teams renders standard markdown inside a TextBlock when ``markdown``
     is ``true`` — bold, italic, bullet lists, and links all work.
+
+    Optional ``suggestions`` renders quick-reply buttons below the text.
+    Clicking one sends that string back to the bot as a plain message.
     """
-    return _card([
+    actions = [
         {
-            "type": "TextBlock",
-            "text": text,
-            "wrap": True,
-            "markdown": True,
-        },
-    ])
+            "type": "Action.Submit",
+            "title": s,
+            "data": {"text": s},   # activity.value["text"] in on_message_activity
+        }
+        for s in (suggestions or [])
+    ]
+    return _card(
+        body=[
+            {
+                "type": "TextBlock",
+                "text": text,
+                "wrap": True,
+                "markdown": True,
+            },
+        ],
+        actions=actions or None,
+    )
+
+
+def link_card(text: str, label: str, url: str) -> dict:
+    """Reply card with a single URL button — e.g. 'Open in portal'."""
+    return _card(
+        body=[
+            {
+                "type": "TextBlock",
+                "text": text,
+                "wrap": True,
+                "markdown": True,
+            },
+        ],
+        actions=[
+            {
+                "type": "Action.OpenUrl",
+                "title": label,
+                "url": url,
+            }
+        ],
+    )

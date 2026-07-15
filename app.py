@@ -42,12 +42,13 @@ async def proactive(req: web.Request) -> web.Response:
     Send a proactive message to one or all known conversations.
 
     Body (JSON):
-      { "message": "Hello!", "user_id": "optional — channel_id:user_id key" }
-
-    If user_id is omitted, the message is broadcast to all stored conversations.
-
-    Note: no authentication on this endpoint — add a shared secret header check
-    before exposing it publicly.
+      {
+        "message": "Hello!",                       # required
+        "user_id": "channel_id:user_id",            # optional — omit to broadcast
+        "suggestions": ["Tell me more", "No thanks"],# optional — quick-reply buttons
+        "url": { "label": "Open portal",            # optional — link button
+                  "href": "https://..." }
+      }
     """
     from bot import conversation_references
 
@@ -55,6 +56,9 @@ async def proactive(req: web.Request) -> web.Response:
     text = body.get("message", "").strip()
     if not text:
         return web.json_response({"error": "message is required"}, status=400)
+
+    suggestions: list[str] = body.get("suggestions") or []
+    url_data: dict | None = body.get("url")  # {"label": str, "href": str}
 
     user_id = body.get("user_id")
     refs = (
@@ -67,9 +71,13 @@ async def proactive(req: web.Request) -> web.Response:
         return web.json_response({"error": "no conversations stored yet — a user must message the bot first"}, status=404)
 
     async def _send(turn_context: TurnContext):
-        from cards import agent_reply_card
+        from cards import agent_reply_card, link_card
+        if url_data and url_data.get("href"):
+            card = link_card(text, url_data.get("label", "Open"), url_data["href"])
+        else:
+            card = agent_reply_card(text, suggestions or None)
         await turn_context.send_activity(
-            MessageFactory.attachment(CardFactory.adaptive_card(agent_reply_card(text)))
+            MessageFactory.attachment(CardFactory.adaptive_card(card))
         )
 
     # continue_conversation requires a non-empty bot_id or a ClaimsIdentity.

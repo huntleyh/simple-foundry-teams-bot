@@ -26,6 +26,11 @@ class FoundryAgentBot(ActivityHandler):
         conversation_references[key] = TC.get_conversation_reference(turn_context.activity)
 
         user_text = turn_context.activity.text or ""
+
+        # Action.Submit sends data in activity.value instead of activity.text
+        if not user_text and turn_context.activity.value:
+            user_text = turn_context.activity.value.get("text", "")
+
         session_key = f"{turn_context.activity.channel_id}:{turn_context.activity.from_property.id}"
 
         reply, response_id = await _call_responses(user_text, _response_ids.get(session_key))
